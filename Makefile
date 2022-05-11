@@ -46,6 +46,7 @@ $(TIME_TWO_TARGET_LIB): $(TIME_TWO_SRCS) $(TIME_TWO_GPU_ONLY_TARGET_LIB)
 time_two_test: tensorflow_time_two/python/ops/time_two_ops_test.py tensorflow_time_two/python/ops/time_two_ops.py $(TIME_TWO_TARGET_LIB)
 	$(PYTHON_BIN_PATH) tensorflow_time_two/python/ops/time_two_ops_test.py
 
+# fused_conv for GPU
 fused_conv_gpu_only: $(FUSED_CONV_GPU_ONLY_TARGET_LIB)
 
 $(FUSED_CONV_GPU_ONLY_TARGET_LIB): tensorflow_fused_conv/cc/kernels/fused_conv_kernels.cu.cc

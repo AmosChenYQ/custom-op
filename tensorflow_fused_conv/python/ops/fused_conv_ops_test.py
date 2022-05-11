@@ -31,20 +31,20 @@ except ImportError:
 
 class FusedConvTest(test.TestCase):
 
-  # @test_util.run_gpu_only
-  # def testFusedConvGPU(self):
-  #   print("test on gpu")
-  #   with self.cached_session():
-  #     with ops.device("/gpu:0"):
-  #       self.assertAllClose(
-  #           fused_conv_ops.fused_conv([[1, 2], [3, 4]]), np.array([[2, 4], [6, 8]]))
-
-  def testFusedConvCPU(self):
-    print("test on cpu")
+  @test_util.run_gpu_only
+  def testFusedConvGPU(self):
+    print("test on gpu")
     with self.cached_session():
-      with ops.device("/cpu:0"):
+      with ops.device("/gpu:0"):
         self.assertAllClose(
-            fused_conv_ops.fused_conv([[1, 2, 3], [4, 5, 6], [7, 8, 9]], [[1, 1], [1, 1]]), np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
+          fused_conv_ops.fused_conv([[1, 2, 3], [4, 5, 6], [7, 8, 9]], [[1, 1], [1, 1]], [[1, 2], [3, 4]]), np.array([[13, 18], [27, 32]]))
+
+  # def testFusedConvCPU(self):
+  #   print("test on cpu")
+  #   with self.cached_session():
+  #     with ops.device("/cpu:0"):
+  #       self.assertAllClose(
+  #         fused_conv_ops.fused_conv([[1, 2, 3], [4, 5, 6], [7, 8, 9]], [[1, 1], [1, 1]], [[1, 2], [3, 4]]), np.array([[13, 18], [27, 32]]))
 
 
 if __name__ == '__main__':

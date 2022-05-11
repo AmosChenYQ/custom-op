@@ -17,10 +17,10 @@ limitations under the License.
 #define EIGEN_USE_GPU
 #endif  // GOOGLE_CUDA
 
+#include <iostream>
+
 #include "fused_conv.h"
 #include "tensorflow/core/framework/op_kernel.h"
-
-#include <iostream>
 
 namespace tensorflow {
 
@@ -31,11 +31,32 @@ namespace functor {
 // CPU specialization of actual computation.
 template <typename T>
 struct FusedConvFunctor<CPUDevice, T> {
-  void operator()(const CPUDevice& d, int size, const T* in, T* out) {
-    for (int i = 0; i < size; ++i) {
-      out[i] = 2 * in[i];
+  FusedConvFunctor() {
+    num_devices_ = 0;
+    std::cout << "init cpu fused conv functor " << num_devices_ << std::endl;
+  }
+  void operator()(const CPUDevice& d, int in_size, int filter_size,
+                  int add_size, int out_size, const T* in, const T* filter,
+                  const T* add, T* out) {
+    for (int out_iter = 0; out_iter < out_size * out_size; ++out_iter) {
+      int out_hi = out_iter / out_size;
+      int out_wi = out_iter % out_size;
+      int in_base_hi = out_hi;
+      int in_base_wi = out_wi;
+      int sum = 0;
+      for (int filter_iter = 0; filter_iter < filter_size * filter_size;
+           ++filter_iter) {
+        int filter_hi = filter_iter / filter_size;
+        int filter_wi = filter_iter % filter_size;
+        sum =
+            sum +
+            filter[filter_iter] *
+                in[(in_base_hi + filter_hi) * in_size + in_base_wi + filter_wi];
+      }
+      out[out_iter] = sum + add[out_iter];
     }
   }
+  int num_devices_ = -1;
 };
 
 // OpKernel definition.
@@ -46,44 +67,77 @@ class FusedConvOp : public OpKernel {
   explicit FusedConvOp(OpKernelConstruction* context) : OpKernel(context) {}
 
   void Compute(OpKernelContext* context) override {
-    // Grab the input tensor
+    // Grab the input, filter and add tensor seperately
     const Tensor& input_tensor = context->input(0);
     const Tensor& filter_tensor = context->input(1);
+    const Tensor& add_tensor = context->input(2);
 
+    OP_REQUIRES(context, input_tensor.NumElements() <= tensorflow::kint32max,
+                errors::InvalidArgument("Too many elements in input tensor"));
+
+    OP_REQUIRES(context, filter_tensor.NumElements() <= tensorflow::kint32max,
+                errors::InvalidArgument("Too many elements in filter tensor"));
+
+    OP_REQUIRES(context, add_tensor.NumElements() <= tensorflow::kint32max,
+                errors::InvalidArgument("Too many elements in add tensor"));
+
+    OP_REQUIRES(context,
+                input_tensor.dims() == 2 &&
+                    input_tensor.dim_size(0) == input_tensor.dim_size(1),
+                errors::InvalidArgument("Input tensor's dimension should be 2 "
+                                        "and height should be equal to width"));
+
+    OP_REQUIRES(context,
+                filter_tensor.dims() == 2 &&
+                    filter_tensor.dim_size(0) == filter_tensor.dim_size(1),
+                errors::InvalidArgument("Filter tensor's dimension should be 2 "
+                                        "and height should be equal to width"));
+
+    OP_REQUIRES(context,
+                add_tensor.dims() == 2 &&
+                    add_tensor.dim_size(0) == add_tensor.dim_size(1),
+                errors::InvalidArgument("Add tensor's dimension should be 2 "
+                                        "and height should be equal to width"));
+
+    const int output_height =
+        input_tensor.dim_size(0) - filter_tensor.dim_size(0) + 1;
+    const int output_width =
+        input_tensor.dim_size(1) - filter_tensor.dim_size(1) + 1;
     // Create an output tensor
     Tensor* output_tensor = NULL;
-    OP_REQUIRES_OK(context, context->allocate_output(0, input_tensor.shape(),
-                                                     &output_tensor));
-
-    std::cout << "input tensor shape is " << input_tensor.shape() << std::endl;
-    std::cout << "filter tensor shape is " << filter_tensor.shape() << std::endl;
+    OP_REQUIRES_OK(context, context->allocate_output(
+                                0, TensorShape({output_height, output_width}),
+                                &output_tensor));
 
     // Do the computation.
-    OP_REQUIRES(context, input_tensor.NumElements() <= tensorflow::kint32max,
-                errors::InvalidArgument("Too many elements in tensor"));
-    FusedConvFunctor<Device, T>()(
-        context->eigen_device<Device>(),
-        static_cast<int>(input_tensor.NumElements()),
-        input_tensor.flat<T>().data(),
-        output_tensor->flat<T>().data());
+    functor_(context->eigen_device<Device>(),
+             static_cast<int>(input_tensor.dim_size(0)),
+             static_cast<int>(filter_tensor.dim_size(0)),
+             static_cast<int>(add_tensor.dim_size(0)),
+             static_cast<int>(output_tensor->dim_size(0)),
+             input_tensor.flat<T>().data(), filter_tensor.flat<T>().data(),
+             add_tensor.flat<T>().data(), output_tensor->flat<T>().data());
   }
+
+ private:
+  functor::FusedConvFunctor<Device, T> functor_;
 };
 
 // Register the CPU kernels.
-#define REGISTER_CPU(T)                                          \
-  REGISTER_KERNEL_BUILDER(                                       \
+#define REGISTER_CPU(T)                                            \
+  REGISTER_KERNEL_BUILDER(                                         \
       Name("FusedConv").Device(DEVICE_CPU).TypeConstraint<T>("T"), \
       FusedConvOp<CPUDevice, T>);
 REGISTER_CPU(int32);
 
 // Register the GPU kernels.
 #ifdef GOOGLE_CUDA
-#define REGISTER_GPU(T)                                          \
+#define REGISTER_GPU(T)                                            \
   extern template struct FusedConvFunctor<GPUDevice, T>;           \
-  REGISTER_KERNEL_BUILDER(                                       \
+  REGISTER_KERNEL_BUILDER(                                         \
       Name("FusedConv").Device(DEVICE_GPU).TypeConstraint<T>("T"), \
       FusedConvOp<GPUDevice, T>);
 REGISTER_GPU(int32);
 #endif  // GOOGLE_CUDA
-}
+}  // namespace functor
 }  // namespace tensorflow

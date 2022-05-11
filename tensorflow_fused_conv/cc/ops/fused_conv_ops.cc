@@ -22,8 +22,9 @@ REGISTER_OP("FusedConv")
     .Attr("T: {int32}")
     .Input("in: T")
     .Input("filter: T")
+    .Input("add: T")
     .Output("out: T")
     .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
-      c->set_output(0, c->input(0));
+      c->set_output(0, c->input(2));
       return Status::OK();
     });

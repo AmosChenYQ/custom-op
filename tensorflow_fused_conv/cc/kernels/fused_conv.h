@@ -8,7 +8,12 @@ namespace functor {
 
 template <typename Device, typename T>
 struct FusedConvFunctor {
-  void operator()(const Device& d, int size, const T* in, T* out);
+  FusedConvFunctor() {};
+  // these sizes are dimensions of their corresponding matrix 
+  void operator()(const Device& d, int in_size, int filter_size, int add_size,
+                  int out_size, const T* in, const T* filter, const T* add,
+                  T* out);
+  int num_devices_;
 };
 
 }  // namespace functor
