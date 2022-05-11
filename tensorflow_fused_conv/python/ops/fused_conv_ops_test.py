@@ -39,12 +39,12 @@ class FusedConvTest(test.TestCase):
         self.assertAllClose(
           fused_conv_ops.fused_conv([[1, 2, 3], [4, 5, 6], [7, 8, 9]], [[1, 1], [1, 1]], [[1, 2], [3, 4]]), np.array([[13, 18], [27, 32]]))
 
-  # def testFusedConvCPU(self):
-  #   print("test on cpu")
-  #   with self.cached_session():
-  #     with ops.device("/cpu:0"):
-  #       self.assertAllClose(
-  #         fused_conv_ops.fused_conv([[1, 2, 3], [4, 5, 6], [7, 8, 9]], [[1, 1], [1, 1]], [[1, 2], [3, 4]]), np.array([[13, 18], [27, 32]]))
+  def testFusedConvCPU(self):
+    print("test on cpu")
+    with self.cached_session():
+      with ops.device("/cpu:0"):
+        self.assertAllClose(
+          fused_conv_ops.fused_conv([[1, 2, 3], [4, 5, 6], [7, 8, 9]], [[1, 1], [1, 1]], [[1, 2], [3, 4]]), np.array([[13, 18], [27, 32]]))
 
 
 if __name__ == '__main__':

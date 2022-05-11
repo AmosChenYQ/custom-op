@@ -31,10 +31,6 @@ namespace functor {
 // CPU specialization of actual computation.
 template <typename T>
 struct FusedConvFunctor<CPUDevice, T> {
-  FusedConvFunctor() {
-    num_devices_ = 0;
-    std::cout << "init cpu fused conv functor " << num_devices_ << std::endl;
-  }
   void operator()(const CPUDevice& d, int in_size, int filter_size,
                   int add_size, int out_size, const T* in, const T* filter,
                   const T* add, T* out) {
@@ -56,7 +52,6 @@ struct FusedConvFunctor<CPUDevice, T> {
       out[out_iter] = sum + add[out_iter];
     }
   }
-  int num_devices_ = -1;
 };
 
 // OpKernel definition.
@@ -110,7 +105,7 @@ class FusedConvOp : public OpKernel {
                                 &output_tensor));
 
     // Do the computation.
-    functor_(context->eigen_device<Device>(),
+    FusedConvFunctor<Device, T>()(context->eigen_device<Device>(),
              static_cast<int>(input_tensor.dim_size(0)),
              static_cast<int>(filter_tensor.dim_size(0)),
              static_cast<int>(add_tensor.dim_size(0)),
@@ -118,9 +113,6 @@ class FusedConvOp : public OpKernel {
              input_tensor.flat<T>().data(), filter_tensor.flat<T>().data(),
              add_tensor.flat<T>().data(), output_tensor->flat<T>().data());
   }
-
- private:
-  functor::FusedConvFunctor<Device, T> functor_;
 };
 
 // Register the CPU kernels.

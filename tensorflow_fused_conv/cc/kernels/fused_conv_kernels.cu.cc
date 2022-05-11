@@ -65,13 +65,6 @@ __global__ void FusedConvCudaKernel(int in_size, int filter_size, int add_size,
 // Define the GPU implementation that launches the CUDA kernel.
 template <typename T>
 struct FusedConvFunctor<GPUDevice, T> {
-  FusedConvFunctor() {
-    std::cout << "should call me" << std::endl;
-    int cuda_device_id = -1;
-    cudaGetDevice(&cuda_device_id);
-    cudaDeviceGetAttribute(&num_devices_, cudaDevAttrMultiProcessorCount, cuda_device_id);
-    std::cout << "init gpu fused conv functor " << "cuda device id " << cuda_device_id << " sm " << num_devices_ << std::endl;
-  }
   void operator()(const GPUDevice& d, int in_size, int filter_size,
                   int add_size, int out_size, const T* in, const T* filter,
                   const T* add, T* out) {
@@ -80,7 +73,7 @@ struct FusedConvFunctor<GPUDevice, T> {
     const int block_count = SDIV(out_size * out_size, thread_per_block);
 
     std::cout << "FusedConvFunctor block count " << block_count
-              << " thread per block " << thread_per_block << " num_devices " << num_devices_ << std::endl;
+              << " thread per block " << thread_per_block << std::endl;
 
     T *In = nullptr, *Filter = nullptr, *Add = nullptr, *Out = nullptr;
     cudaMalloc(&In, sizeof(T) * in_size * in_size);
@@ -97,7 +90,6 @@ struct FusedConvFunctor<GPUDevice, T> {
 
     cudaMemcpy(out, Out, sizeof(T) * out_size * out_size, D2H);
   }
-  int num_devices_ = -1;
 };
 
 // Explicitly instantiate functors for the types of OpKernels registered.
