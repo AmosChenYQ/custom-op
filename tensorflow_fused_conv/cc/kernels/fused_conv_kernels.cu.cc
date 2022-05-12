@@ -72,23 +72,9 @@ struct FusedConvFunctor<GPUDevice, T> {
     const int thread_per_block = 32;
     const int block_count = SDIV(out_size * out_size, thread_per_block);
 
-    std::cout << "FusedConvFunctor block count " << block_count
-              << " thread per block " << thread_per_block << std::endl;
-
-    T *In = nullptr, *Filter = nullptr, *Add = nullptr, *Out = nullptr;
-    cudaMalloc(&In, sizeof(T) * in_size * in_size);
-    cudaMalloc(&Filter, sizeof(T) * filter_size * filter_size);
-    cudaMalloc(&Add, sizeof(T) * add_size * add_size);
-    cudaMalloc(&Out, sizeof(T) * out_size * out_size);
-
-    cudaMemcpy(In, in, sizeof(T) * in_size * in_size, H2D);
-    cudaMemcpy(Filter, filter, sizeof(T) * filter_size * filter_size, H2D);
-    cudaMemcpy(Add, add, sizeof(T) * add_size * add_size, H2D);
-
     FusedConvCudaKernel<T><<<block_count, thread_per_block, 0, d.stream()>>>(
-        in_size, filter_size, add_size, out_size, In, Filter, Add, Out);
+        in_size, filter_size, add_size, out_size, in, filter, add, out);
 
-    cudaMemcpy(out, Out, sizeof(T) * out_size * out_size, D2H);
   }
 };
 
