@@ -1,4 +1,5 @@
 .vscode
 *.so
 *.o
+artifacts/*
 __pycache__
